@@ -89,7 +89,7 @@ namespace IdentityManager.Controllers
                     LockedOut = u.LockoutEnd == null ? String.Empty : "Yes",
                     Roles = u.Roles.Select(r => _roles[r.RoleId]),
                     Claims = u.Claims.Select(c => new KeyValuePair<string, string>(_claimTypes.Single(x => x.Value == c.ClaimType).Key, c.ClaimValue)),
-                    DisplayName = u.Claims.FirstOrDefault(c => c.ClaimType == ClaimTypes.Name).ClaimValue,
+                    DisplayName = u.Claims.FirstOrDefault(c => c.ClaimType == ClaimTypes.Name)?.ClaimValue ?? u.Email,
                     UserName = u.UserName
                 }).ToArray()
             };
@@ -236,8 +236,12 @@ namespace IdentityManager.Controllers
                     return NotFound("User not found.");
 
                 if (await _userManager.HasPasswordAsync(user))
-                    await _userManager.RemovePasswordAsync(user);
-
+                {
+                  var removePwResult = await _userManager.RemovePasswordAsync(user);
+                    if (!removePwResult.Succeeded)
+                        return StatusCode(StatusCodes.Status500InternalServerError, "Could not remove old password!");
+                }
+                    
                 var result = await _userManager.AddPasswordAsync(user, password);
                 if (result.Succeeded)
                 {
